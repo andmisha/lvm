@@ -243,7 +243,48 @@ Filesystem             Size  Used Avail Use% Mounted on
 ---
 24. Для уменьшения LV необходимо выполнить следующий порядок действий:
 - Отмонтировать ФС
+```
+[root@lvm ~]# umount /data/
+```
 - Выполнить проверку на ошибки LV
+```
+[root@lvm ~]# e2fsck -f /dev/otus/test
+e2fsck 1.42.9 (28-Dec-2013)
+Pass 1: Checking inodes, blocks, and sizes
+Pass 2: Checking directory structure
+Pass 3: Checking directory connectivity
+Pass 4: Checking reference counts
+Pass 5: Checking group summary information
+/dev/otus/test: 12/729088 files (0.0% non-contiguous), 2105907/2914304 blocks
+```
 - Выполнить ресайз ФС
+```
+[root@lvm ~]# resize2fs /dev/otus/test 10G
+resize2fs 1.42.9 (28-Dec-2013)
+Resizing the filesystem on /dev/otus/test to 2621440 (4k) blocks.
+The filesystem on /dev/otus/test is now 2621440 blocks long.
+```
 - Уменьшить LV
-- Смонтировать ФС
+```
+[root@lvm ~]# lvreduce /dev/otus/test -L 10G
+  WARNING: Reducing active logical volume to 10.00 GiB.
+  THIS MAY DESTROY YOUR DATA (filesystem etc.)
+Do you really want to reduce otus/test? [y/n]: y
+  Size of logical volume otus/test changed from <11.12 GiB (2846 extents) to 10.00 GiB (2560 extents).
+  Logical volume otus/test successfully resized.
+  ```
+- Смонтировать ФС и проверить фактический размер
+```
+[root@lvm ~]# mount /dev/otus/test /data/
+[root@lvm ~]# df -h
+Filesystem                       Size  Used Avail Use% Mounted on
+/dev/mapper/VolGroup00-LogVol00   38G  753M   37G   2% /
+devtmpfs                         109M     0  109M   0% /dev
+tmpfs                            118M     0  118M   0% /dev/shm
+tmpfs                            118M  4.5M  114M   4% /run
+tmpfs                            118M     0  118M   0% /sys/fs/cgroup
+/dev/sda2                       1014M   63M  952M   7% /boot
+tmpfs                             24M     0   24M   0% /run/user/1000
+/dev/mapper/otus-test            9.8G  7.8G  1.6G  84% /data
+```
+25.  
