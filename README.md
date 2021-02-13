@@ -144,6 +144,7 @@ Writing superblocks and filesystem accounting information: done
 [root@lvm ~]# mount | grep data
 /dev/mapper/otus-test on /data type ext4 (rw,relatime,seclabel,data=ordered)
 ```
+---
 15. Далее расширить VG otus, примонтированный в папку /data/ за счет еще одного блочного устройства /dev/sdc
 ```
 [root@lvm ~]# pvcreate /dev/sdc
@@ -226,4 +227,23 @@ Filesystem at /dev/otus/test is mounted on /data; on-line resizing required
 old_desc_blocks = 1, new_desc_blocks = 2
 The filesystem on /dev/otus/test is now 2914304 blocks long.
 ```
-23. 
+23. Проверить
+Было:
+```
+[root@lvm ~]# df -h /data/
+Filesystem             Size  Used Avail Use% Mounted on
+/dev/mapper/otus-test  7.8G  7.8G     0 100% /data
+```
+Стало:
+```
+[root@lvm ~]# df -h /data/
+Filesystem             Size  Used Avail Use% Mounted on
+/dev/mapper/otus-test   11G  7.8G  2.6G  76% /data
+```
+---
+24. Для уменьшения LV необходимо выполнить следующий порядок действий:
+### Отмонтировать ФС
+### Выполнить проверку на ошибки LV
+### Выполнить ресайз ФС
+### Уменьшить LV
+### Смонтировать ФС
