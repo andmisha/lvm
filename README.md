@@ -952,4 +952,155 @@ Writing superblocks and filesystem accounting information: done
 ```
 [root@lvm /]#  echo "`blkid | grep var: | awk '{print $2}'` /var ext4 defaults 0 0" >> /etc/fstab
 ```
-52. 
+52. Перезагрузить ВМ и проверить
+```
+[vagrant@lvm ~]$ lsblk
+NAME                     MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+sda                        8:0    0   40G  0 disk
+├─sda1                     8:1    0    1M  0 part
+├─sda2                     8:2    0    1G  0 part /boot
+└─sda3                     8:3    0   39G  0 part
+  ├─VolGroup00-LogVol00  253:0    0    8G  0 lvm  /
+  └─VolGroup00-LogVol01  253:1    0  1.5G  0 lvm  [SWAP]
+sdb                        8:16   0   10G  0 disk
+└─vg_root-lv_root        253:2    0   10G  0 lvm
+sdc                        8:32   0    2G  0 disk
+├─vg_var-lv_var_rmeta_0  253:3    0    4M  0 lvm
+│ └─vg_var-lv_var        253:7    0  952M  0 lvm  /var
+└─vg_var-lv_var_rimage_0 253:4    0  952M  0 lvm
+  └─vg_var-lv_var        253:7    0  952M  0 lvm  /var
+sdd                        8:48   0    1G  0 disk
+├─vg_var-lv_var_rmeta_1  253:5    0    4M  0 lvm
+│ └─vg_var-lv_var        253:7    0  952M  0 lvm  /var
+└─vg_var-lv_var_rimage_1 253:6    0  952M  0 lvm
+  └─vg_var-lv_var        253:7    0  952M  0 lvm  /var
+sde                        8:64   0    1G  0 disk
+```
+53. Выделить том под /home
+```
+[root@lvm ~]#  lvcreate -n LogVol_Home -L 2G /dev/VolGroup00
+  Logical volume "LogVol_Home" created.
+[root@lvm ~]# mkfs.xfs /dev/VolGroup00/LogVol_Home
+meta-data=/dev/VolGroup00/LogVol_Home isize=512    agcount=4, agsize=131072 blks
+         =                       sectsz=512   attr=2, projid32bit=1
+         =                       crc=1        finobt=0, sparse=0
+data     =                       bsize=4096   blocks=524288, imaxpct=25
+         =                       sunit=0      swidth=0 blks
+naming   =version 2              bsize=4096   ascii-ci=0 ftype=1
+log      =internal log           bsize=4096   blocks=2560, version=2
+         =                       sectsz=512   sunit=0 blks, lazy-count=1
+realtime =none                   extsz=4096   blocks=0, rtextents=0
+[root@lvm ~]#  mount /dev/VolGroup00/LogVol_Home /mnt/
+[root@lvm ~]# cp -aR /home/* /mnt/
+[root@lvm ~]# rm -rf /home/*
+[root@lvm ~]# umount /mnt
+[root@lvm ~]# mount /dev/VolGroup00/LogVol_Home /home/
+```
+54. Проверить
+```
+[root@lvm ~]# lsblk
+NAME                       MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+sda                          8:0    0   40G  0 disk
+├─sda1                       8:1    0    1M  0 part
+├─sda2                       8:2    0    1G  0 part /boot
+└─sda3                       8:3    0   39G  0 part
+  ├─VolGroup00-LogVol00    253:0    0    8G  0 lvm  /
+  ├─VolGroup00-LogVol01    253:1    0  1.5G  0 lvm  [SWAP]
+  └─VolGroup00-LogVol_Home 253:8    0    2G  0 lvm  /home
+sdb                          8:16   0   10G  0 disk
+└─vg_root-lv_root          253:2    0   10G  0 lvm
+sdc                          8:32   0    2G  0 disk
+├─vg_var-lv_var_rmeta_0    253:3    0    4M  0 lvm
+│ └─vg_var-lv_var          253:7    0  952M  0 lvm  /var
+└─vg_var-lv_var_rimage_0   253:4    0  952M  0 lvm
+  └─vg_var-lv_var          253:7    0  952M  0 lvm  /var
+sdd                          8:48   0    1G  0 disk
+├─vg_var-lv_var_rmeta_1    253:5    0    4M  0 lvm
+│ └─vg_var-lv_var          253:7    0  952M  0 lvm  /var
+└─vg_var-lv_var_rimage_1   253:6    0  952M  0 lvm
+  └─vg_var-lv_var          253:7    0  952M  0 lvm  /var
+sde                          8:64   0    1G  0 disk
+```
+55. Снапшоты. Сгенерировать 20 файлов в папке /home
+```
+[root@lvm ~]# touch /home/file{1..20}
+[root@lvm ~]# ls -l /home
+total 0
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file1
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file10
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file11
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file12
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file13
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file14
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file15
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file16
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file17
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file18
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file19
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file2
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file20
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file3
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file4
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file5
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file6
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file7
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file8
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file9
+drwx------. 3 vagrant vagrant 74 May 12  2018 vagrant
+```
+56. Создать снапшот
+```
+[root@lvm ~]# lvcreate -L 100MB -s -n home_snap /dev/VolGroup00/LogVol_Home
+  Rounding up size to full physical extent 128.00 MiB
+  Logical volume "home_snap" created.
+```
+57. Удалить часть файлов
+```
+[root@lvm ~]# rm -f /home/file{5..12}
+[root@lvm ~]# ls -l /home
+total 0
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file1
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file13
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file14
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file15
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file16
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file17
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file18
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file19
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file2
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file20
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file3
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file4
+drwx------. 3 vagrant vagrant 74 May 12  2018 vagrant
+```
+58. Накатить снапшот и проверить, что файлы появились (помнить, что файловая система должна быть размонтирована)
+```
+[root@lvm ~]# umount /home
+[root@lvm ~]#  lvconvert --merge /dev/VolGroup00/home_snap
+  Merging of volume VolGroup00/home_snap started.
+  VolGroup00/LogVol_Home: Merged: 100.00%
+[root@lvm ~]# mount /home
+[root@lvm ~]# ls -l /home
+total 0
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file1
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file10
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file11
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file12
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file13
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file14
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file15
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file16
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file17
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file18
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file19
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file2
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file20
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file3
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file4
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file5
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file6
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file7
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file8
+-rw-r--r--. 1 root    root     0 Feb 13 21:30 file9
+drwx------. 3 vagrant vagrant 74 May 12  2018 vagrant
+```
