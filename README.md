@@ -362,4 +362,188 @@ drwx------. 2 root root      16384 Feb 13 17:36 lost+found
 -rw-r--r--. 1 root root 8262189056 Feb 13 18:50 test.log
 ```
 ---
-29. 
+29. LVM Mirroring (зеркало). Создаем 2 PV
+```
+[root@lvm ~]# pvcreate /dev/sd{d,e}
+  Physical volume "/dev/sdd" successfully created.
+  Physical volume "/dev/sde" successfully created.
+```
+30. Создать VG vg0 из 2-ух PV
+```
+[root@lvm ~]# vgcreate vg0 /dev/sd{d,e}
+  Volume group "vg0" successfully created
+```
+31. Создать LG с именем miror на 80% свободного места на VG vg0
+```
+[root@lvm ~]# lvcreate -l+80%FREE -m1 -n mirror vg0
+  Logical volume "mirror" created.
+```
+32. Проверить создание LG
+```
+[root@lvm ~]# lvs
+  LV       VG         Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  LogVol00 VolGroup00 -wi-ao---- <37.47g
+  LogVol01 VolGroup00 -wi-ao----   1.50g
+  small    otus       -wi-a----- 100.00m
+  test     otus       -wi-ao----  10.00g
+  mirror   vg0        rwi-a-r--- 816.00m                                    100.00
+```
+---
+Домашнее задание
+33. Установить пакет xfsdump для снятии копии тома /
+```
+[root@lvm ~]# yum install xfsdump
+Loaded plugins: fastestmirror
+Loading mirror speeds from cached hostfile
+ * base: mirror.reconn.ru
+ * extras: mirror.reconn.ru
+ * updates: mirror.reconn.ru
+Resolving Dependencies
+--> Running transaction check
+---> Package xfsdump.x86_64 0:3.1.7-1.el7 will be installed
+--> Processing Dependency: attr >= 2.0.0 for package: xfsdump-3.1.7-1.el7.x86_64
+--> Running transaction check
+---> Package attr.x86_64 0:2.4.46-13.el7 will be installed
+--> Finished Dependency Resolution
+
+Dependencies Resolved
+
+====================================================================================================================================
+ Package                       Arch                         Version                                Repository                  Size
+====================================================================================================================================
+Installing:
+ xfsdump                       x86_64                       3.1.7-1.el7                            base                       308 k
+Installing for dependencies:
+ attr                          x86_64                       2.4.46-13.el7                          base                        66 k
+
+Transaction Summary
+====================================================================================================================================
+Install  1 Package (+1 Dependent package)
+
+Total download size: 374 k
+Installed size: 1.1 M
+Is this ok [y/d/N]: y
+Downloading packages:
+(1/2): attr-2.4.46-13.el7.x86_64.rpm                                                                         |  66 kB  00:00:00
+(2/2): xfsdump-3.1.7-1.el7.x86_64.rpm                                                                        | 308 kB  00:00:00
+------------------------------------------------------------------------------------------------------------------------------------
+Total                                                                                               809 kB/s | 374 kB  00:00:00
+Running transaction check
+Running transaction test
+Transaction test succeeded
+Running transaction
+  Installing : attr-2.4.46-13.el7.x86_64                                                                                        1/2
+  Installing : xfsdump-3.1.7-1.el7.x86_64                                                                                       2/2
+  Verifying  : attr-2.4.46-13.el7.x86_64                                                                                        1/2
+  Verifying  : xfsdump-3.1.7-1.el7.x86_64                                                                                       2/2
+
+Installed:
+  xfsdump.x86_64 0:3.1.7-1.el7
+
+Dependency Installed:
+  attr.x86_64 0:2.4.46-13.el7
+
+Complete!
+```
+34. Создать временный том для раздела /
+```
+[root@lvm ~]# pvcreate /dev/sdb
+  Physical volume "/dev/sdb" successfully created.
+[root@lvm ~]# pvs
+  PV         VG         Fmt  Attr PSize    PFree
+  /dev/sda3  VolGroup00 lvm2 a--   <38.97g      0
+  /dev/sdb              lvm2 ---    10.00g  10.00g
+  /dev/sdc   otus       lvm2 a--    <2.00g  <2.00g
+  /dev/sdd   vg0        lvm2 a--  1020.00m 200.00m
+  /dev/sde   vg0        lvm2 a--  1020.00m 200.00m
+[root@lvm ~]# vgcreate vg_root /dev/sdb
+  Volume group "vg_root" successfully created
+[root@lvm ~]# vgs
+  VG         #PV #LV #SN Attr   VSize   VFree
+  VolGroup00   1   2   0 wz--n- <38.97g      0
+  otus         1   0   0 wz--n-  <2.00g  <2.00g
+  vg0          2   1   0 wz--n-   1.99g 400.00m
+  vg_root      1   0   0 wz--n- <10.00g <10.00g
+[root@lvm ~]# lvcreate -n lv_root -l +100%FREE /dev/vg_root
+WARNING: ext4 signature detected on /dev/vg_root/lv_root at offset 1080. Wipe it? [y/n]: y
+  Wiping ext4 signature on /dev/vg_root/lv_root.
+  Logical volume "lv_root" created.
+```
+35. Создать ФС и смонтировать том
+```
+[root@lvm ~]# mkfs.xfs /dev/vg_root/lv_root
+meta-data=/dev/vg_root/lv_root   isize=512    agcount=4, agsize=655104 blks
+         =                       sectsz=512   attr=2, projid32bit=1
+         =                       crc=1        finobt=0, sparse=0
+data     =                       bsize=4096   blocks=2620416, imaxpct=25
+         =                       sunit=0      swidth=0 blks
+naming   =version 2              bsize=4096   ascii-ci=0 ftype=1
+log      =internal log           bsize=4096   blocks=2560, version=2
+         =                       sectsz=512   sunit=0 blks, lazy-count=1
+realtime =none                   extsz=4096   blocks=0, rtextents=0
+[root@lvm ~]# mount /dev/vg_root/lv_root /mnt
+[root@lvm ~]# mount | grep lv_root
+/dev/mapper/vg_root-lv_root on /mnt type xfs (rw,relatime,seclabel,attr2,inode64,noquota)
+```
+36. Скопировать все данные из / в новый раздел
+```
+[root@lvm ~]# xfsdump -J - /dev/VolGroup00/LogVol00 | xfsrestore -J - /mnt
+xfsrestore: using file dump (drive_simple) strategy
+xfsrestore: version 3.1.7 (dump format 3.0)
+xfsdump: using file dump (drive_simple) strategy
+xfsdump: version 3.1.7 (dump format 3.0)
+xfsrestore: searching media for dump
+xfsdump: level 0 dump of lvm:/
+xfsdump: dump date: Sat Feb 13 20:14:55 2021
+xfsdump: session id: 3ea390f9-97ad-4ad2-b50c-f180cc5ae85e
+xfsdump: session label: ""
+xfsdump: ino map phase 1: constructing initial dump list
+xfsdump: ino map phase 2: skipping (no pruning necessary)
+xfsdump: ino map phase 3: skipping (only one dump stream)
+xfsdump: ino map construction complete
+xfsdump: estimated dump size: 751897536 bytes
+xfsdump: creating dump session media file 0 (media 0, file 0)
+xfsdump: dumping ino map
+xfsdump: dumping directories
+xfsrestore: examining media file 0
+xfsrestore: dump description:
+xfsrestore: hostname: lvm
+xfsrestore: mount point: /
+xfsrestore: volume: /dev/mapper/VolGroup00-LogVol00
+xfsrestore: session time: Sat Feb 13 20:14:55 2021
+xfsrestore: level: 0
+xfsrestore: session label: ""
+xfsrestore: media label: ""
+xfsrestore: file system id: b60e9498-0baa-4d9f-90aa-069048217fee
+xfsrestore: session id: 3ea390f9-97ad-4ad2-b50c-f180cc5ae85e
+xfsrestore: media id: fc3c1f01-8aa2-4874-9d45-d78bc0b5b99d
+xfsrestore: searching media for directory dump
+xfsrestore: reading directories
+xfsdump: dumping non-directory files
+xfsrestore: 2720 directories and 23657 entries processed
+xfsrestore: directory post-processing
+xfsrestore: restoring non-directory files
+xfsdump: ending media file
+xfsdump: media file size 728909120 bytes
+xfsdump: dump size (non-dir files) : 715718872 bytes
+xfsdump: dump complete: 10 seconds elapsed
+xfsdump: Dump Status: SUCCESS
+xfsrestore: restore complete: 11 seconds elapsed
+xfsrestore: Restore Status: SUCCESS
+```
+37. Проверить, что все скопировалось
+```
+[root@lvm ~]# ls /mnt
+bin  boot  data  data-snap  dev  etc  home  lib  lib64  media  mnt  opt  proc  root  run  sbin  srv  sys  tmp  usr  vagrant  var
+```
+38. Gереконфигурировать grub, чтобы при загрузке автоматически переходить в новый / (/mnt)
+```
+[root@lvm ~]# for i in /proc/ /sys/ /dev/ /run/ /boot/; do mount --bind $i /mnt/$i; done
+[root@lvm ~]# chroot /mnt/
+[root@lvm /]# grub2-mkconfig -o /boot/grub2/grub.cfg
+Generating grub configuration file ...
+Found linux image: /boot/vmlinuz-3.10.0-862.2.3.el7.x86_64
+Found initrd image: /boot/initramfs-3.10.0-862.2.3.el7.x86_64.img
+done
+```
+39. 
