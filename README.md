@@ -137,4 +137,93 @@ Writing inode tables: done
 Creating journal (32768 blocks): done
 Writing superblocks and filesystem accounting information: done
 ```
-14. 
+14. Смотировать LV в созданную папку /data/ и проверить монтирование
+```
+[root@lvm ~]# mkdir /data
+[root@lvm ~]# mount /dev/otus/test /data/
+[root@lvm ~]# mount | grep data
+/dev/mapper/otus-test on /data type ext4 (rw,relatime,seclabel,data=ordered)
+```
+15. Далее расширить VG otus, примонтированный в папку /data/ за счет еще одного блочного устройства /dev/sdc
+```
+[root@lvm ~]# pvcreate /dev/sdc
+  Physical volume "/dev/sdc" successfully created.
+[root@lvm ~]# vgextend otus /dev/sdc
+  Volume group "otus" successfully extended
+```
+16. Проверить, что в свойствах VG присутсвтует второй диск
+```
+[root@lvm ~]# vgdisplay -v otus | grep 'PV Name'
+  PV Name               /dev/sdb
+  PV Name               /dev/sdc
+```
+17. Проверить, что место действительно прибавилось
+Было:
+```
+[root@lvm ~]# vgs
+  VG         #PV #LV #SN Attr   VSize   VFree
+  VolGroup00   1   2   0 wz--n- <38.97g    0
+  otus         1   1   0 wz--n- <10.00g 2.00g
+```
+Стало:
+```
+[root@lvm ~]# vgs
+  VG         #PV #LV #SN Attr   VSize   VFree
+  VolGroup00   1   2   0 wz--n- <38.97g     0
+  otus         2   2   0 wz--n-  11.99g <3.90g
+```
+18. Создать файл, который займет 100% места (2 Гб уже занято, нужно еще 8 Гб) на LV test
+```
+[root@lvm ~]# dd if=/dev/zero of=/data/test.log bs=1M count=8000 status=progress
+8028946432 bytes (8.0 GB) copied, 25.132634 s, 319 MB/s
+dd: error writing ‘/data/test.log’: No space left on device
+7880+0 records in
+7879+0 records out
+8262189056 bytes (8.3 GB) copied, 25.9668 s, 318 MB/s
+```
+И проверить свободное место
+```
+[root@lvm ~]# df -h /data/
+Filesystem             Size  Used Avail Use% Mounted on
+/dev/mapper/otus-test  7.8G  7.8G     0 100% /data
+```
+19. Расширить LV на часть свободного места (80%)
+```
+[root@lvm ~]# lvextend -l+80%FREE /dev/otus/test
+  Size of logical volume otus/test changed from <8.00 GiB (2047 extents) to <11.12 GiB (2846 extents).
+  Logical volume otus/test successfully resized.
+```
+20. Проверить факт расширения
+Было:
+```
+[root@lvm ~]# lvs
+  LV       VG         Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  LogVol00 VolGroup00 -wi-ao---- <37.47g
+  LogVol01 VolGroup00 -wi-ao----   1.50g
+  small    otus       -wi-a----- 100.00m
+  test     otus       -wi-ao----  <8.00g
+```
+Стало:
+```
+[root@lvm ~]# lvs
+  LV       VG         Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  LogVol00 VolGroup00 -wi-ao---- <37.47g
+  LogVol01 VolGroup00 -wi-ao----   1.50g
+  small    otus       -wi-a----- 100.00m
+  test     otus       -wi-ao---- <11.12g
+```
+21. Проверить размер файловой системы на LV - размер остался прежний
+```
+[root@lvm ~]# df -h /data/
+Filesystem             Size  Used Avail Use% Mounted on
+/dev/mapper/otus-test  7.8G  7.8G     0 100% /data
+```
+22. Провести ресайз файловой системы LV
+```
+[root@lvm ~]# resize2fs /dev/otus/test
+resize2fs 1.42.9 (28-Dec-2013)
+Filesystem at /dev/otus/test is mounted on /data; on-line resizing required
+old_desc_blocks = 1, new_desc_blocks = 2
+The filesystem on /dev/otus/test is now 2914304 blocks long.
+```
+23. 
