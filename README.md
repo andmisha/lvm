@@ -297,4 +297,69 @@ tmpfs                             24M     0   24M   0% /run/user/1000
   test     otus       -wi-ao----  10.00g
 ```
 ---
-25.  
+25.  Создать снапшот
+```
+[root@lvm ~]# lvcreate -L 500M -s -n test-snap /dev/otus/test
+  Logical volume "test-snap" created.
+```
+26. Проверить наличие снапшота
+```
+[root@lvm ~]# vgs -o +lv_size,lv_name | grep test
+  otus         2   3   1 wz--n-  11.99g <1.41g  10.00g test
+  otus         2   3   1 wz--n-  11.99g <1.41g 500.00m test-snap
+```
+и
+```
+[root@lvm ~]# lsblk
+NAME                    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+sda                       8:0    0   40G  0 disk
+├─sda1                    8:1    0    1M  0 part
+├─sda2                    8:2    0    1G  0 part /boot
+└─sda3                    8:3    0   39G  0 part
+  ├─VolGroup00-LogVol00 253:0    0 37.5G  0 lvm  /
+  └─VolGroup00-LogVol01 253:1    0  1.5G  0 lvm  [SWAP]
+sdb                       8:16   0   10G  0 disk
+├─otus-small            253:3    0  100M  0 lvm
+└─otus-test-real        253:4    0   10G  0 lvm
+  ├─otus-test           253:2    0   10G  0 lvm  /data
+  └─otus-test--snap     253:6    0   10G  0 lvm
+sdc                       8:32   0    2G  0 disk
+├─otus-test-real        253:4    0   10G  0 lvm
+│ ├─otus-test           253:2    0   10G  0 lvm  /data
+│ └─otus-test--snap     253:6    0   10G  0 lvm
+└─otus-test--snap-cow   253:5    0  500M  0 lvm
+  └─otus-test--snap     253:6    0   10G  0 lvm
+sdd                       8:48   0    1G  0 disk
+sde                       8:64   0    1G  0 disk
+```
+27. Смонтировать снапшот
+```
+[root@lvm ~]# mkdir /data-snap
+[root@lvm ~]# mount /dev/otus/test-snap /data
+data/      data-snap/
+[root@lvm ~]# mount /dev/otus/test-snap /data-snap/
+[root@lvm ~]# cd /data-snap/
+[root@lvm data-snap]# ls -l
+total 8068564
+drwx------. 2 root root      16384 Feb 13 17:36 lost+found
+-rw-r--r--. 1 root root 8262189056 Feb 13 18:50 test.log
+```
+28. Удалить файл test.log на оригинальном LV в папке /data/ и откатиться на снапшот
+```
+[root@lvm ~]# rm /data/test.log
+rm: remove regular file ‘/data/test.log’? y
+[root@lvm ~]# ls -l /data/
+total 16
+drwx------. 2 root root 16384 Feb 13 17:36 lost+found
+[root@lvm ~]# umount /data
+[root@lvm ~]# lvconvert --merge /dev/otus/test-snap
+  Merging of volume otus/test-snap started.
+  otus/test: Merged: 100.00%
+[root@lvm ~]# mount /dev/otus/test /data
+[root@lvm ~]# ls -l /data
+total 8068564
+drwx------. 2 root root      16384 Feb 13 17:36 lost+found
+-rw-r--r--. 1 root root 8262189056 Feb 13 18:50 test.log
+```
+---
+29. 
