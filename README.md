@@ -287,4 +287,14 @@ tmpfs                            118M     0  118M   0% /sys/fs/cgroup
 tmpfs                             24M     0   24M   0% /run/user/1000
 /dev/mapper/otus-test            9.8G  7.8G  1.6G  84% /data
 ```
+и
+```
+[root@lvm ~]# lvs
+  LV       VG         Attr       LSize   Pool Origin Data%  Meta%  Move Log Cpy%Sync Convert
+  LogVol00 VolGroup00 -wi-ao---- <37.47g
+  LogVol01 VolGroup00 -wi-ao----   1.50g
+  small    otus       -wi-a----- 100.00m
+  test     otus       -wi-ao----  10.00g
+```
+---
 25.  
